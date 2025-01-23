@@ -142,6 +142,7 @@ class RomerModel():
 
         return {
             'output': self.output,
+            'labor': self.total_labor,
             'unemployment': self.unemployment,
             'knowledge': self.knowledge_stock,
             'output_gap': self.output_gap,
