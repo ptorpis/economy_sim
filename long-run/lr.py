@@ -103,10 +103,20 @@ class RomerModel():
 
             current_time = boom_end
 
+        # Create the same list of all periods but with booms
+        boom_count = 0
+        boom_periods = set()
+        for t in range(int(total_steps)):
+            if booms[boom_count][0] <= t <= booms[boom_count][1]:
+                boom_periods.add(t)
+                if t == booms[boom_count][1] and boom_count + 1 != len(booms):
+                    boom_count += 1
+
         return {
             'recessions': recessions,
             'recession_periods': recession_periods,
-            'booms': booms
+            'booms': booms,
+            'boom_periods': boom_periods
         }
 
     
@@ -125,7 +135,7 @@ class RomerModel():
                 job_separation_rate = boom_job_dynamics['job_separation_rate']
                 job_finding_rate = boom_job_dynamics['job_finding_rate']
 
-            self.economic_cycles(t, recessions_and_booms['recessions'], recessions_and_booms['booms'])
+            self.economic_cycles(t, recessions_and_booms)
 
             self.total_labor[t] = np.exp(self.population_growth * self.time[t]) - self.unemployment[t - 1]
 
@@ -142,13 +152,13 @@ class RomerModel():
 
             # Output growth with randomness
             noise = np.random.normal(self.random_mean, self.random_std) # Accounting for everything the model can't capture
-            noise = 0
+            #noise = 0
             self.output[t] = (self.knowledge_stock[t]**self.gamma) * output_labor * (1 + noise) + (self.output_gap[t] * self.output[t-1])
         
     
     def as_ds(self, Y_tilde, previous_inflation, t):
-        output_gap = (self.aggregate_demand[t] / (1 - self.propensity_to_consume)) - (self.b_bar * self.m_policy / (1 - self.propensity_to_consume)) * (previous_inflation - self.inflation_target)
-        inflation = previous_inflation + self.inflation_sensitivity * Y_tilde + self.cost_shock
+        output_gap = (self.aggregate_demand[t] / (1 - self.propensity_to_consume[t])) - (self.b_bar * self.m_policy / (1 - self.propensity_to_consume[t])) * (previous_inflation - self.inflation_target)
+        inflation = previous_inflation + self.inflation_sensitivity * Y_tilde + self.cost_shock[t]
         
         return output_gap, inflation
     
@@ -192,9 +202,24 @@ class RomerModel():
         }
     
 
-    def economic_cycles(self, t, recession_dates=0, boom_dates=0):
-        self.cost_shock[t] = np.random.normal(-1, 1)
-        self.aggregate_demand[t] = np.random.normal(-1, 1)
+    def economic_cycles(self, t, recessions_and_booms):
+        recession_periods = recessions_and_booms['recession_periods']
+        boom_periods = recessions_and_booms['boom_periods']
+
+        if t in recession_periods:
+            self.cost_shock[t] += 0.3
+            self.aggregate_demand[t] -= 0.3
+            self.propensity_to_consume[t] -= 0.1
+
+        elif t in boom_periods:
+            self.cost_shock[t] -= 0.3
+            self.aggregate_demand[t] += 0.3
+            self.propensity_to_consume[t] += 0.1
+
+        else:
+            self.cost_shock[t] = self.cost_shock[0]
+            self.aggregate_demand[t] = self.aggregate_demand[0]
+            self.propensity_to_consume[t] = self.propensity_to_consume[0]
 
     def plot(self):
         self.output[0] = self.output[1] # The first element will always be 0 because of the way the loop is set up
