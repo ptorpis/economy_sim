@@ -1,34 +1,36 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import config_gen
 
 # Initialize variables
 
 class RomerModel():
     def __init__(self):
-        with open('../config/config.json', 'r') as file: 
-            config = json.load(file)
+        config_gen.generate_config()
+        with open('simconfig.json', 'r') as file: 
+            self.config = json.load(file)
 
-        A0 = config["A0"]
-        L0 = config["L0"]
-        self.gamma = config["gamma"]
-        self.research_productivity = config["research_productivity"] # How productive is the economy in generating ideas
-        self.population_growth = config["population_growth"]
-        self.labor_allocation = config["labor_allocation"]
+        A0 = self.config["A0"]
+        L0 = self.config["L0"]
+        self.gamma = self.config["gamma"]
+        self.research_productivity = self.config["research_productivity"] # How productive is the economy in generating ideas
+        self.population_growth = self.config["population_growth"]
+        self.labor_allocation = self.config["labor_allocation"]
         self.research_labor_allocation = 1 - self.labor_allocation
-        self.time_step = config["time_step"] # Quarters
-        self.simulation_time = config["simulation_time"] # Years
-        self.random_mean = config["random_mean"]
-        self.random_std = config["random_std"] # Standard dev of the noise, adjust to control variability
-        self.propensity_to_consume = config["propensity_to_consume"]
-        self.aggregate_demand = config["aggregate_demand"] # Initial demand shock to the economy
-        self.b_bar = config["b_bar"]
-        self.inflation_sensitivity = config["inflation_sensitivity"]
-        self.cost_shock = config["cost_shock"]
-        self.m_policy = config["m_policy"]
-        self.inflation_target = config["inflation_target"]
-        self.base_job_separation_rate = config["job_separation_rate"]
-        self.base_job_finding_rate = config["job_finding_rate"]
+        self.time_step = self.config["time_step"] # Quarters
+        self.simulation_time = self.config["simulation_time"] # Years
+        self.random_mean = self.config["random_mean"]
+        self.random_std = self.config["random_std"] # Standard dev of the noise, adjust to control variability
+        self.propensity_to_consume = self.config["propensity_to_consume"]
+        self.aggregate_demand = self.config["aggregate_demand"] # Initial demand shock to the economy
+        self.b_bar = self.config["b_bar"]
+        self.inflation_sensitivity = self.config["inflation_sensitivity"]
+        self.cost_shock = self.config["cost_shock"]
+        self.m_policy = self.config["m_policy"]
+        self.inflation_target = self.config["inflation_target"]
+        self.base_job_separation_rate = self.config["job_separation_rate"]
+        self.base_job_finding_rate = self.config["job_finding_rate"]
 
         # Initialize arrays and initial values
         self.time = np.arange(0, self.simulation_time, self.time_step)
@@ -40,11 +42,11 @@ class RomerModel():
 
         self.knowledge_stock[0] = A0
         self.total_labor[0] = L0
-        self.output_gap[0] = config["initial_output_gap"]
-        self.inflation[0] = config["initial_inflation"]
+        self.output_gap[0] = self.config["initial_output_gap"]
+        self.inflation[0] = self.config["initial_inflation"]
 
         self.unemployment = np.zeros(len(self.time))
-        self.unemployment[0] = config["initial_unemployment_rate"] * L0
+        self.unemployment[0] = self.config["initial_unemployment_rate"] * L0
 
         
 
@@ -135,8 +137,18 @@ class RomerModel():
             # Output growth with randomness
             noise = np.random.normal(self.random_mean, self.random_std) # Accounting for everything the model can't capture
             self.output[t] = (self.knowledge_stock[t]**self.gamma) * output_labor * (1 + noise) + (self.output_gap[t] * self.output[t-1])
+
+
+
+        return {
+            'output': self.output,
+            'unemployment': self.unemployment,
+            'knowledge': self.knowledge_stock,
+            'output_gap': self.output_gap,
+            'config': self.config
+        }
         
-    
+
     def as_ds(self, Y_tilde, previous_inflation):
         output_gap = (self.aggregate_demand/(1 - self.propensity_to_consume)) - (self.b_bar * self.m_policy / (1 - self.propensity_to_consume)) * (previous_inflation - self.inflation_target)
         inflation = previous_inflation + self.inflation_sensitivity * Y_tilde + self.cost_shock
@@ -191,12 +203,11 @@ class RomerModel():
         plt.xlabel("Time")
         plt.ylabel("Output")
         plt.savefig('../plots/output.png')
-        plt.show()
 
 
 
 if __name__ == "__main__":
     model = RomerModel()
     recessions_and_booms = model.generate_recessions_and_booms()
-    model.simulate_model(recessions_and_booms)
+    simulation = model.simulate_model(recessions_and_booms)
     model.plot()
