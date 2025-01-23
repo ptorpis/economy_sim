@@ -20,10 +20,8 @@ class RomerModel():
         self.simulation_time = config["simulation_time"] # Years
         self.random_mean = config["random_mean"]
         self.random_std = config["random_std"] # Standard dev of the noise, adjust to control variability
-        self.propensity_to_consume = config["propensity_to_consume"]
         self.b_bar = config["b_bar"]
         self.inflation_sensitivity = config["inflation_sensitivity"]
-        self.cost_shock = config["cost_shock"]
         self.m_policy = config["m_policy"]
         self.inflation_target = config["inflation_target"]
         self.base_job_separation_rate = config["job_separation_rate"]
@@ -39,6 +37,12 @@ class RomerModel():
 
         self.aggregate_demand = np.zeros(len(self.time))
         self.aggregate_demand[0] = config['aggregate_demand'] # Initial aggregate demand
+
+        self.cost_shock = np.zeros(len(self.time))
+        self.cost_shock[0] = config["cost_shock"]
+        
+        self.propensity_to_consume = np.zeros(len(self.time))
+        self.propensity_to_consume[0] = config["propensity_to_consume"]
 
         self.knowledge_stock[0] = A0
         self.total_labor[0] = L0
@@ -121,7 +125,7 @@ class RomerModel():
                 job_separation_rate = boom_job_dynamics['job_separation_rate']
                 job_finding_rate = boom_job_dynamics['job_finding_rate']
 
-            self.economic_cycles(recessions_and_booms['recessions'], recessions_and_booms['booms'])
+            self.economic_cycles(t, recessions_and_booms['recessions'], recessions_and_booms['booms'])
 
             self.total_labor[t] = np.exp(self.population_growth * self.time[t]) - self.unemployment[t - 1]
 
@@ -138,6 +142,7 @@ class RomerModel():
 
             # Output growth with randomness
             noise = np.random.normal(self.random_mean, self.random_std) # Accounting for everything the model can't capture
+            noise = 0
             self.output[t] = (self.knowledge_stock[t]**self.gamma) * output_labor * (1 + noise) + (self.output_gap[t] * self.output[t-1])
         
     
@@ -187,8 +192,9 @@ class RomerModel():
         }
     
 
-    def economic_cycles(self, recession_dates, boom_dates):
-        pass
+    def economic_cycles(self, t, recession_dates=0, boom_dates=0):
+        self.cost_shock[t] = np.random.normal(-1, 1)
+        self.aggregate_demand[t] = np.random.normal(-1, 1)
 
     def plot(self):
         self.output[0] = self.output[1] # The first element will always be 0 because of the way the loop is set up
